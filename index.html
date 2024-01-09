@@ -31,14 +31,48 @@ video {
 
 <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
 <script  type="module"  >
-import { GestureRecognizer, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+
+	import { GestureRecognizer, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+
+
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js'
+    import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js'
+    import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'
+    //import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js'
+	import {getDatabase, ref, onValue, set} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js'
+	const firebaseConfig = {
+		apiKey: "AIzaSyDPIrdCY7V32jCmmIDgmXRQSymLJg0ejvo",
+		authDomain: "airdots-5624b.firebaseapp.com",
+		databaseURL: "https://airdots-5624b-default-rtdb.europe-west1.firebasedatabase.app",
+		projectId: "airdots-5624b",
+		storageBucket: "airdots-5624b.appspot.com",
+		messagingSenderId: "653233497639",
+		appId: "1:653233497639:web:d17ae2636a05d3854ed002",
+		measurementId: "G-JL56RTPEQQ"
+	  };
+	const app = initializeApp(firebaseConfig);
+	const db = getDatabase(app);
+	const messagesRef = ref(db,'messages');
+
+	function writeUserData(text) {
+	  const db = getDatabase();
+	  set(messagesRef, {world: text, });
+	}
+	
+	
+
+
+//--------------------------------------------------------------------------------------------
+//Camera part
+//--------------------------------------------------------------------------------------------
+
 const demosSection = document.getElementById("demos");
 let gestureRecognizer;
 let runningMode = "VIDEO";
 let enableWebcamButton;
 let webcamRunning = false;
-const videoHeight = "720px";//"360px";
-const videoWidth = "960px";//"480px";
+const videoHeight = "360px";//"360px";
+const videoWidth = "480px";//"480px";
 // Before we can use HandLandmarker class we must wait for it to finish
 // loading. Machine Learning models can be large and take a moment to
 // get everything needed to run.
@@ -51,7 +85,7 @@ const createGestureRecognizer = async () => {
             delegate: "GPU"
         },
         runningMode: runningMode,
-		numHands: 2
+		numHands: 1
     });
     demosSection.classList.remove("invisible");
 };
@@ -134,9 +168,15 @@ async function predictWebcam() {
 	
 	var found = false;
 	isGrab = false;
+	
+	
+	
+	
     if (results.landmarks) {
 		
         for (const landmarks of results.landmarks) {
+			if (landmarks||false) {writeUserData(landmarks);
+	}
 			if(true)
 			{
 				drawingUtils.drawConnectors(landmarks, GestureRecognizer.HAND_CONNECTIONS, {
@@ -152,6 +192,8 @@ async function predictWebcam() {
 		    var f1 = landmarks[8];
 		    var f2 = landmarks[4];
 			
+			console.log(landmarks);
+			
 			if(Math.abs(f1.x - f2.x)<0.05 && Math.abs(f1.y - f2.y)<0.05 && Math.abs(f1.z - f2.z)<0.05)
 			{
 				isGrab = true;
@@ -160,9 +202,6 @@ async function predictWebcam() {
 				if(grabStart==null)
 				{
 					grabStart = { x : (f1.x+f2.x)/2.0, y : (f1.y+f2.y)/2.0 }
-					
-					//new Audio('ding.mp3').play();
-					//ding.play();
 				}
 				canvasCtx.beginPath();
 				canvasCtx.moveTo(canvasElement.width*grabStart.x,canvasElement.height*grabStart.y,);
@@ -196,10 +235,10 @@ async function predictWebcam() {
         const categoryName = results.gestures[0][0].categoryName;
         const categoryScore = parseFloat(results.gestures[0][0].score * 100).toFixed(2);
         const handedness = results.handednesses[0][0].displayName;
-        gestureOutput.innerText = `GestureRecognizer: ${categoryName}\n Confidence: ${categoryScore} %\n Handedness: ${handedness}`;
+        gestureOutput.innerText = `${categoryName}\n ${categoryScore} %\n ${handedness}`;
     }
     else {
-        gestureOutput.style.display = "none";
+        gestureOutput.innerText = "";
     }
     // Call this function again to keep predicting when the browser is ready.
     if (webcamRunning === true) {
@@ -209,21 +248,45 @@ async function predictWebcam() {
 
 
 
+var game = {
+	bird:{x:0,y:0,z:0}
+}
+
+onValue(messagesRef, (snapshot) => {
+		const data = snapshot.val();
+		console.log(data);
+		const videoElement = document.getElementById("video_canvas");
+		const videoCtx = videoElement.getContext("2d");
+
+		videoCtx.save();
+		videoCtx.clearRect(0, 0, videoElement.width, videoElement.height);
+		const drawingUtils = new DrawingUtils(videoCtx);
+		drawingUtils.drawConnectors(data.world, GestureRecognizer.HAND_CONNECTIONS, {
+			color: "#00FF00",
+			lineWidth: 5
+		});
+		drawingUtils.drawLandmarks(data.world, {
+			color: "#FF0000",
+			lineWidth: 2
+		});
+	});
+
 </script>
 
-<h1>Recognize hand gestures using the MediaPipe HandGestureRecognizer task</h1>
-
 <section id="demos" class="invisible">
-  <h2>Demo: Recognize gestures</h2>
-
   <div id="liveView" class="videoView">
     <button id="webcamButton" class="mdc-button mdc-button--raised">
       <span class="mdc-button__ripple"></span>
-      <span class="mdc-button__label">ENABLE WEBCAM</span>
+      <span class="mdc-button__label">Start</span>
     </button>
+	<div style="border:1px;">
+	      <canvas class="video_canvas" id="video_canvas" width="480" height="360" ></canvas>
+
+	</div>
     <div style="position: relative;">
       <video id="webcam" autoplay playsinline></video>
-      <canvas class="output_canvas" id="output_canvas" width="960" height="720" style="position: absolute; left: 0px; top: 0px;"></canvas>
+      <canvas class="output_canvas" id="output_canvas" width="480" height="360" style="position: absolute; left: 0px; top: 0px;"></canvas>
+      <canvas class="game_canvas" id="game_canvas" width="2000" height="1000" style="position: absolute; left: 0px; top: 0px;"></canvas>
       <p id='gesture_output' class="output">
     </div>
   </div>
